@@ -3,6 +3,7 @@
 #include <LinkedList.h>
 #include <IRremote.h>
 #include <Wire.h>
+#include <FastLED.h>
 
 //Sensor Makros
 #define IRRECIEVER_DATA_PIN 19
@@ -14,7 +15,12 @@
 #define MODI_FARBE "Farbe"
 
 //Light Makro
-#define LED_BUILDIN 2
+#define NUM_LEDS 60      // Anzahl der Pixel
+#define LED_TYPE WS2812B // IC Typ
+#define COLOR_ORDER GRB  // typische Farbreihenfolge GRB
+#define BRIGHTNESS 127   // Lichtstärke x von 255
+#define DATA_PIN 5     // Data In
+
 
 //Variablen und Datenstrukturen für die Menüstruktur
 enum e_Modi{
@@ -42,18 +48,21 @@ class Modi{
 };
 
 //Variablen für die Hardwarekomponenten
-LiquidCrystal_I2C lcd(0x3F, 16, 2);
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 //Variablen für die Menustruktur
 LinkedList<Modi*> ModiList = LinkedList<Modi*>();
 int p_ModiPosition = e_raumlicht;
 int p_ParameterPosition = 0;
-bool in_ParameterList = false;
 bool in_Eingabe = false;
+
+//Variablen für Licht
+CRGB leds[NUM_LEDS];     // Initialisierung Array CRGB
 
 //Menu Funktionsprototyp
 void InitilizeLCD();
 void InitilizeMenu();
+void InitilizeLight();
 void PrintModi(int, int);
 
 //TaskHandler für die Parallelisierung
@@ -69,8 +78,7 @@ void setup() {
   Serial.begin(115200);
   InitilizeLCD();
   InitilizeMenu();
-
-  pinMode(LED_BUILDIN, OUTPUT);
+  InitilizeLight();
 }
 
 void loop() {
@@ -148,8 +156,18 @@ void loop() {
       PrintModi(p_ModiPosition, p_ParameterPosition);
       delay(100);
       IrReceiver.resume();
+    } else {
+      switch (p_ModiPosition) {
+        case e_effekt:
+          LichtModiRainbow();
+          break;
+        case e_raumlicht:
+          LichtModiRaum();
+          break;
+        default:
+          break;
+      }
     }
- 
 }
 
 //Hier soll die LCD Anzeige Initalisiert werden.
@@ -212,4 +230,23 @@ void PrintModi(int positionModi, int positionParameter) {
     lcd.setCursor(16-4,1);
     lcd.print(ModiList.get(positionModi)->am_parameterList.get(positionParameter)->ap_parameter);
   }
+}
+
+//Lichtfunktionen
+//Initaliiserung der Strips
+void InitilizeLight() {
+  FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS);
+  FastLED.setBrightness(BRIGHTNESS);// Lichtstärke setzen
+}
+
+void LichtModiRainbow() {
+  uint8_t beatA = beatsin8(30, 0, 255);
+  uint8_t beatB = beatsin8(30, 0, 255);
+  fill_rainbow(leds, NUM_LEDS, (beatA+beatB)/2, 8);
+  FastLED.show();
+}
+
+void LichtModiRaum() {
+  fill_solid(leds, NUM_LEDS, CRGB::AntiqueWhite);
+  FastLED.show();
 }
