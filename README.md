@@ -4,3 +4,4 @@ Diese Dokumentation dient als Unterstützung bei der Weiterentwicklung der Softw
 
 ## Projektstruktur
 
+Das Arbeitspaket mit dem Schwerpukt Software besteht aus einem Arduino Sketch. Dieser benötigt immer einen gleichnamigen Ordner. Zusätzliche Datenstrukturen werden im Sketch inkludiert und nicht als separate Header-Dateien eingebunden.
