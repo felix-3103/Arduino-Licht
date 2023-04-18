@@ -1,8 +1,11 @@
+#include <arduino.h>
+#include <esp_dmx.h>
 #include <LiquidCrystal_I2C.h>  // Bibliothek für die LCD Anzeige
 #include <LinkedList.h>         // Bibliothek für die Datenstruktur des Menüs
 #include <IRremote.h>           // Bibliothek für die Verwendung der IR-Fernbedienung
 #include <Wire.h>               // Bibliothek wird für LCD I2C benötigt
 #include <FastLED.h>            // Bibliothek für die Nutzung eines LED Streifens
+
 
 // Sensor Makros
 #define IRRECIEVER_DATA_PIN 19
@@ -19,7 +22,7 @@
 #define NUM_LEDS 60      // Anzahl der Pixel muss bei neuem Gehäuse angepasst werden.
 #define LED_TYPE WS2812B
 #define COLOR_ORDER GRB
-#define BRIGHTNESS 255
+#define BRIGHTNESS 127
 #define DATA_PIN 5
 
 
@@ -82,16 +85,22 @@ uint8_t hue = 0;
 unsigned long previousTime = 0;
 unsigned long currentTime = 0;
 
+//Variablen für DMX
+int RX_Pin = 16;
+dmx_port_t dmxPort = 1;
+byte dmxdata [7];
+QueueHandle_t queue;
+bool dmxIsConnected = false;
+
 // Farbarrays
-String tempArray[] = {
-  "1850K",
-  "2200K",
-  "2700K",
-  "3000K",
-  "4100K",
-  "5000K",
-  "5500K",
-  "6500K"
+Color* tempArray[] = {
+  new Color("1800K", CRGB(215,65,10)),
+  new Color("2000K", CRGB(255,80,15)), 
+  new Color("2500K", CRGB(255,125,45)),
+  new Color("2850K", CRGB(255,214,170)),
+  new Color("3200K", CRGB(255,241,224)),
+  new Color("5200K", CRGB(255,250,244)),
+  new Color("6000K", CRGB(255,255,255))
 };
 
 Color* farbArray[] = {
@@ -99,13 +108,15 @@ Color* farbArray[] = {
   new Color("Gruen", CRGB::Green),
   new Color("Blau", CRGB::Blue),
   new Color("Gelb", CRGB::Yellow),
-  new Color("Lila", CRGB::Purple)
+  new Color("Lila", CRGB::Purple),
+  new Color("Orange", CRGB::Orange)
 };
 
 // Menu Funktionsprototyp
 void InitilizeLCD();
 void InitilizeMenu();
 void InitilizeLight();
+void InitilizeDMX();
 void PrintModi(int, int);
 
 // Licht Funktionsprototyp
@@ -123,6 +134,7 @@ void setup() {
   InitilizeLCD();
   InitilizeMenu();
   InitilizeLight();
+  InitilizeDMX();
 }
 
 void loop() {
@@ -240,13 +252,13 @@ void InitilizeMenu() {
   Modi *raumlicht = new Modi();
   raumlicht->am_title = MODI_RAUM;
   // new Parameter ("Titel", Startwert, maximaler Wert, minimaler Wert, Schrittweite);
-  raumlicht->am_parameterList.add(new Parameter("Temp.", 0, 7, 0, 1));
+  raumlicht->am_parameterList.add(new Parameter("Temp.", 0, (sizeof(tempArray)/sizeof(tempArray[0])), 0, 1));
   ModiList.add(raumlicht);
 
   // MODI 2 - Farbe
   Modi *farbe = new Modi();
   farbe->am_title = MODI_FARBE;
-  farbe->am_parameterList.add(new Parameter("Farbe", 0, 4, 0, 1));
+  farbe->am_parameterList.add(new Parameter("Farbe", 0, (sizeof(farbArray)/sizeof(farbArray[0])), 0, 1));
   ModiList.add(farbe);
 
   // MODI 3 - Farbpalette
@@ -260,7 +272,7 @@ void InitilizeMenu() {
   // MODI 4 - Effektlicht
   Modi *effekt = new Modi();
   effekt->am_title = MODI_EFFEKT;
-  effekt->am_parameterList.add(new Parameter("Tempo", 0, 100, 0));
+  effekt->am_parameterList.add(new Parameter("Tempo(%)", 10, 100, 10, 10));
   ModiList.add(effekt);
 
   // MODI 5 - DMX
@@ -271,7 +283,7 @@ void InitilizeMenu() {
   // Einstellungen (Wird aber als Modi der Datenstruktur hinzugefügt)
   Modi *settings = new Modi();
   settings->am_title = MODI_SETTINGS;
-  settings->am_parameterList.add(new Parameter("Helligkeit", 100, 100, 0));
+  settings->am_parameterList.add(new Parameter("Hellig.(%)", 100, 100, 0, 10));
   ModiList.add(settings);
 
   // Startposition setzen
@@ -283,46 +295,57 @@ void InitilizeMenu() {
 void PrintModi(int positionModi, int positionParameter) {
   lcd.clear();
 
-  // In einem ersten Schritt sollen die Modi auf dem LCD Display dargestellt werden. Eine wichige Unterscheidung ist jedoch das Thema "Einstellungen".  
-  if(positionModi == e_settings) {
+  // In einem ersten Schritt sollen die Modi auf dem LCD Display dargestellt werden. Eine wichige Unterscheidung ist jedoch das Thema "Einstellungen".
+  switch (positionModi) {
+    case e_settings:
     //Einstellungen sollen nicht als Modi bezeichnet werden.
-    lcd.print(ModiList.get(positionModi)->am_title);
-
-  } else {
-
-    lcd.print("MODI: " + ModiList.get(positionModi)->am_title);
-
+      lcd.print(ModiList.get(positionModi)->am_title);
+      break;
+    default:
+      lcd.print("MODI: " + ModiList.get(positionModi)->am_title);
+      break;
   }
   
   // Danach werden die Parameter dargestellt. Dabei hat aber DMX aktuell keine Parameter und wird als Ausnahme deklariert.
   if(positionModi != e_dmx){
 
-      lcd.setCursor(0,1);
-      lcd.print(ModiList.get(positionModi)->am_parameterList.get(positionParameter)->ap_title + ":");
-    
-    // Dann gibt es besonderheiten bei der Umsetzung einiger Parameter.
-    if(positionModi == e_raumlicht) {
-      // Beim Raumlicht wird der Parameter in Lichttemperaturen umgewanldet.
-      lcd.setCursor(16-6,1);
-      int light = ModiList.get(positionModi)->am_parameterList.get(positionParameter)->ap_parameter;
-      lcd.print(tempArray[light]);
-      
-    } else if(positionModi == e_farbe){
-      // Beim Farblicht wird der Parameter in vorgewählte Farben definiert.
-      lcd.setCursor(16-6,1);
-      int light = ModiList.get(positionModi)->am_parameterList.get(positionParameter)->ap_parameter;
-      lcd.print(farbArray[light]->am_title);
-      
-    } else {
+    lcd.setCursor(0,1);
+    lcd.print(ModiList.get(positionModi)->am_parameterList.get(positionParameter)->ap_title + ":");
 
-      lcd.setCursor(16-4,1);
-      lcd.print(ModiList.get(positionModi)->am_parameterList.get(positionParameter)->ap_parameter);
+    lcd.setCursor(16-6,1);
+    byte positionLicht = ModiList.get(positionModi)->am_parameterList.get(positionParameter)->ap_parameter;
 
+    switch (positionModi) {
+      case e_raumlicht: {
+        lcd.print(tempArray[positionLicht]->am_title);
+        break;
+      }
+      case e_farbe: {
+        lcd.print(farbArray[positionLicht]->am_title);
+        break;   
+      }
+      default: {
+        lcd.setCursor(16-4,1);
+        lcd.print(ModiList.get(positionModi)->am_parameterList.get(positionParameter)->ap_parameter);
+        break;
+      }
     }
   }
 }
 
 // Lichtfunktionen
+void InitilizeDMX() {
+  dmx_config_t dmxConfig = DMX_DEFAULT_CONFIG;
+  dmx_param_config(dmxPort, &dmxConfig);
+  dmx_set_pin(dmxPort, DMX_PIN_NO_CHANGE, RX_Pin, DMX_PIN_NO_CHANGE);
+  int queueSize = 1;
+  int interruptPriority = 1;
+  dmx_driver_install(
+    dmxPort, DMX_MAX_PACKET_SIZE,
+    queueSize, &queue,
+    interruptPriority);
+}
+
 // Initaliiserung der Strips
 void InitilizeLight() {
   FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS);
@@ -340,12 +363,18 @@ void RunModi(byte _position) {
     }
       
     case e_raumlicht: {
-      LichtModiRaum(ModiList.get(e_raumlicht)->am_parameterList.get(0)->ap_parameter);
+      byte _tempIndex = ModiList.get(e_raumlicht)->am_parameterList.get(0)->ap_parameter;
+      LichtModiFarbe(tempArray[_tempIndex]->am_color);
       break;
     }
       
     case e_settings: {
       Settings(ModiList.get(e_settings)->am_parameterList.get(0)->ap_parameter);
+      break;
+    }
+
+    case e_dmx: {
+      LichtModiDMX();
       break;
     }
       
@@ -382,46 +411,9 @@ void LichtModiRainbow(byte _tempo) {
   FastLED.show();
 }
 
-// Funktion für den MODI 1 - Raumlicht
-void LichtModiRaum(byte _tempIndex) {
-  fill_solid(leds, NUM_LEDS, CRGB::White);
-
-  switch (_tempIndex) {
-    case 0:
-      FastLED.setTemperature(Candle);
-      break;
-    case 1:
-      FastLED.setTemperature(Tungsten40W);
-      break;
-    case 2:
-      FastLED.setTemperature(Tungsten100W);
-      break;
-    case 3:
-      FastLED.setTemperature(Halogen);
-      break;
-    case 4:
-      FastLED.setTemperature(CarbonArc);
-      break;
-    case 5:
-      FastLED.setTemperature(HighNoonSun);
-      break;
-    case 6:
-      FastLED.setTemperature(DirectSunlight);
-      break;
-    case 7:
-      FastLED.setTemperature(OvercastSky);
-      break;
-    case 8:
-      FastLED.setTemperature(ClearBlueSky);
-      break;
-  }
-
-  FastLED.show();
-}
-
 // Funktion für das verändern zentraler Parameter (Einstellungen)
 void Settings(byte _helligkeit) {
-  FastLED.setBrightness(map(_helligkeit, 0, 100, 0, 255));
+  FastLED.setBrightness(map(_helligkeit, 0, 100, 0, 127));
   FastLED.show();
 }
 
@@ -438,4 +430,13 @@ void LichtModiFarbpalette(byte _rot, byte _gruen, byte _blau) {
     leds[i] = CRGB(_rot, _gruen, _blau);
   }
   FastLED.show();
+}
+
+// Funktion für den MODI 5 - DMX
+void LichtModiDMX() {
+  dmx_event_t packet;
+  if (xQueueReceive(queue, &packet, DMX_PACKET_TIMEOUT_TICK))
+    if (packet.status == DMX_OK)
+      dmx_read_packet(dmxPort, dmxdata, packet.size);
+  LichtModiFarbpalette(dmxdata[1], dmxdata[2], dmxdata[3]);
 }
