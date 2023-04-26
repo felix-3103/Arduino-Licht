@@ -252,13 +252,13 @@ void InitilizeMenu() {
   Modi *raumlicht = new Modi();
   raumlicht->am_title = MODI_RAUM;
   // new Parameter ("Titel", Startwert, maximaler Wert, minimaler Wert, Schrittweite);
-  raumlicht->am_parameterList.add(new Parameter("Temp.", 0, (sizeof(tempArray)/sizeof(tempArray[0])), 0, 1));
+  raumlicht->am_parameterList.add(new Parameter("Temp.", 0, (sizeof(tempArray)/sizeof(tempArray[0]))-1, 0, 1));
   ModiList.add(raumlicht);
 
   // MODI 2 - Farbe
   Modi *farbe = new Modi();
   farbe->am_title = MODI_FARBE;
-  farbe->am_parameterList.add(new Parameter("Farbe", 0, (sizeof(farbArray)/sizeof(farbArray[0])), 0, 1));
+  farbe->am_parameterList.add(new Parameter("Farbe", 0, (sizeof(farbArray)/sizeof(farbArray[0]))-1, 0, 1));
   ModiList.add(farbe);
 
   // MODI 3 - Farbpalette
@@ -413,7 +413,7 @@ void LichtModiRainbow(byte _tempo) {
 
 // Funktion für das verändern zentraler Parameter (Einstellungen)
 void Settings(byte _helligkeit) {
-  FastLED.setBrightness(map(_helligkeit, 0, 100, 0, 127));
+  FastLED.setBrightness(map(_helligkeit, 0, 100, 0, BRIGHTNESS));
   FastLED.show();
 }
 
