@@ -12,17 +12,18 @@
 
 // Menü Makros
 #define MODI_DMX "DMX"
-#define MODI_EFFEKT "Rainbow"
+#define MODI_FUNKY "Funky"
+#define MODI_RAINBOW "Rainbow"
 #define MODI_RAUM "Raumlicht"
 #define MODI_FARBEPALETTE "Farbpalette"
 #define MODI_FARBE "Farbe"
 #define MODI_SETTINGS "Einstellungen"
 
 // Licht Makros
-#define NUM_LEDS 60      // Anzahl der Pixel muss bei neuem Gehäuse angepasst werden.
+#define NUM_LEDS 100      // Anzahl der Pixel muss bei neuem Gehäuse angepasst werden.
 #define LED_TYPE WS2812B
 #define COLOR_ORDER GRB
-#define BRIGHTNESS 127
+#define BRIGHTNESS 192
 #define DATA_PIN 5
 
 
@@ -31,7 +32,8 @@ enum e_Modi{
   e_raumlicht,
   e_farbe,
   e_farbpalette,
-  e_effekt,
+  e_funky,
+  e_rainbow,
   e_dmx,
   e_settings
 };
@@ -80,19 +82,6 @@ bool in_Eingabe = false;
 
 // Variablen für Licht
 CRGB leds[NUM_LEDS];
-
-uint8_t HAW_Logo[] = {
-  0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000,
-  0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000,
-  0x000000, 0x000000, 0x000000, 0x000000, 0x0f46a3, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000,
-  0x000000, 0x0f46a3, 0x000000, 0x0f46a3, 0x000000, 0x0f46a3, 0x000000, 0x000000, 0x000000, 0x0f46a3,
-  0x000000, 0x0f46a3, 0x000000, 0x0f46a3, 0x0f46a3, 0x0f46a3, 0x000000, 0x000000, 0x000000, 0x0f46a3,
-  0x000000, 0x0f46a3, 0x0f46a3, 0x0f46a3, 0x000000, 0x0f46a3, 0x000000, 0x000000, 0x000000, 0x0f46a3,
-  0x000000, 0x0f46a3, 0x000000, 0x0f46a3, 0x000000, 0x0f46a3, 0x000000, 0x0f46a3, 0x000000, 0x0f46a3,
-  0x000000, 0x0f46a3, 0x000000, 0x0f46a3, 0x000000, 0x000000, 0x0f46a3, 0x000000, 0x0f46a3, 0x000000,
-  0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000,
-  0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000
-};
 
 uint8_t hue = 0;
 unsigned long previousTime = 0;
@@ -145,8 +134,8 @@ void setup() {
   // Initialiserung der Hardware
   Serial.begin(115200);
   InitilizeLCD();
-  InitilizeLight();
   InitilizeMenu();
+  InitilizeLight();
   InitilizeDMX();
 }
 
@@ -254,6 +243,7 @@ void InitilizeLCD() {
   lcd.print("Willkommen ;)");
   lcd.setCursor(0, 1);
   lcd.print("HAW-Light");
+  delay(2000);
 }
 
 // Hier soll das Menü initalisiert werden. Jeder Menüpunkt wird erzeugt inkl. der Parameter.
@@ -282,14 +272,21 @@ void InitilizeMenu() {
   ModiList.add(farbPalette);
 
   // MODI 4 - Effektlicht
-  Modi *effekt = new Modi();
-  effekt->am_title = MODI_EFFEKT;
-  effekt->am_parameterList.add(new Parameter("Tempo(%)", 10, 100, 10, 10));
-  ModiList.add(effekt);
+  Modi *funky = new Modi();
+  funky->am_title = MODI_FUNKY;
+  funky->am_parameterList.add(new Parameter("Tempo(%)", 10, 100, 10, 10));
+  ModiList.add(funky);
 
-  // MODI 5 - DMX
+  // MODI 5 - Effektlicht
+  Modi *rainbow = new Modi();
+  rainbow->am_title = MODI_RAINBOW;
+  rainbow->am_parameterList.add(new Parameter("Tempo(%)", 10, 100, 10, 10));
+  ModiList.add(rainbow);
+
+  // MODI 6 - DMX
   Modi *dmx = new Modi();
   dmx->am_title = MODI_DMX;
+  dmx->am_parameterList.add(new Parameter("Adress:", 0, 512-4, 0, 1));
   ModiList.add(dmx);
 
   // Einstellungen (Wird aber als Modi der Datenstruktur hinzugefügt)
@@ -319,28 +316,26 @@ void PrintModi(int positionModi, int positionParameter) {
   }
   
   // Danach werden die Parameter dargestellt. Dabei hat aber DMX aktuell keine Parameter und wird als Ausnahme deklariert.
-  if(positionModi != e_dmx){
 
-    lcd.setCursor(0,1);
-    lcd.print(ModiList.get(positionModi)->am_parameterList.get(positionParameter)->ap_title + ":");
+  lcd.setCursor(0,1);
+  lcd.print(ModiList.get(positionModi)->am_parameterList.get(positionParameter)->ap_title + ":");
 
-    lcd.setCursor(16-6,1);
-    byte positionLicht = ModiList.get(positionModi)->am_parameterList.get(positionParameter)->ap_parameter;
+  lcd.setCursor(16-6,1);
+  byte positionLicht = ModiList.get(positionModi)->am_parameterList.get(positionParameter)->ap_parameter;
 
-    switch (positionModi) {
-      case e_raumlicht: {
-        lcd.print(tempArray[positionLicht]->am_title);
-        break;
-      }
-      case e_farbe: {
-        lcd.print(farbArray[positionLicht]->am_title);
-        break;   
-      }
-      default: {
-        lcd.setCursor(16-4,1);
-        lcd.print(ModiList.get(positionModi)->am_parameterList.get(positionParameter)->ap_parameter);
-        break;
-      }
+  switch (positionModi) {
+    case e_raumlicht: {
+      lcd.print(tempArray[positionLicht]->am_title);
+      break;
+    }
+    case e_farbe: {
+      lcd.print(farbArray[positionLicht]->am_title);
+      break;   
+    }
+    default: {
+      lcd.setCursor(16-4,1);
+      lcd.print(ModiList.get(positionModi)->am_parameterList.get(positionParameter)->ap_parameter);
+      break;
     }
   }
 }
@@ -363,20 +358,19 @@ void InitilizeLight() {
   FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setBrightness(BRIGHTNESS);// Lichtstärke setzen
   previousTime = currentTime;
-   
-  for(int i = 0; i < MATRIX_WIDTH*MATRIX_HEIGHT; i++) {
-    leds[i] = HAW_Logo[i];
-  }
-  
-  delay(2000);
 }
 
 // Hier soll entschieden werden, welcher Modi getriggert werden soll.
 void RunModi(byte _position) {
 
   switch (_position) {
-    case e_effekt: {
-      LichtModiRainbow(ModiList.get(e_effekt)->am_parameterList.get(0)->ap_parameter);
+    case e_funky: {
+      LichtModiFunky(ModiList.get(e_funky)->am_parameterList.get(0)->ap_parameter);
+      break;
+    }
+
+    case e_rainbow: {
+      LichtModiRainbow(ModiList.get(e_rainbow)->am_parameterList.get(0)->ap_parameter);
       break;
     }
       
@@ -409,16 +403,53 @@ void RunModi(byte _position) {
       LichtModiFarbe(farbArray[LichtNummer]->am_color);
       break;
     }
+
   }
 }
 
 // Funktion für den MODI 4 - Effektlicht
-void LichtModiRainbow(byte _tempo) {
+void LichtModiFunky(byte _tempo) {
   currentTime = millis();
   unsigned long newtempo = map(_tempo, 0, 100, 30, 0);
 
   for (int i =0; i < NUM_LEDS; i++) {
     leds[i] = CHSV(hue + (i*10), 255, 255);
+  }
+  
+  if(currentTime - previousTime >= newtempo){
+    previousTime = currentTime;
+    hue++;
+  }
+
+  FastLED.show();
+}
+
+void dynmischesLicht() {
+
+}
+
+// Funktion für den MODI 5 - Effektlicht
+void LichtModiRainbow(byte _tempo) {
+  currentTime = millis();
+  unsigned long newtempo = map(_tempo, 0, 100, 30, 0);
+
+  //farbe vergeben
+  for(int j = 0; j < 10; j++) {
+    leds[j] = CHSV(hue + (j*10), 255, 255);
+  }
+
+  for (int i =10; i < NUM_LEDS; i++) {
+    int Zeilennummer = (i / 10) % 2;
+
+    //Grade Zeilen füllen
+    if(Zeilennummer == 0){
+      leds[i] = leds[i%10];
+    }
+
+    //ungerade Zeilen füllen
+    if(Zeilennummer == 1){
+      leds[i] = leds[(10-1) - (i%10)];
+    }
   }
   
   if(currentTime - previousTime >= newtempo){
@@ -452,9 +483,10 @@ void LichtModiFarbpalette(byte _rot, byte _gruen, byte _blau) {
 
 // Funktion für den MODI 5 - DMX
 void LichtModiDMX() {
+  int anfangsAdresse = ModiList.get(e_dmx)->am_parameterList.get(0)->ap_parameter;
   dmx_event_t packet;
   if (xQueueReceive(queue, &packet, DMX_PACKET_TIMEOUT_TICK))
     if (packet.status == DMX_OK)
       dmx_read_packet(dmxPort, dmxdata, packet.size);
-  LichtModiFarbpalette(dmxdata[1], dmxdata[2], dmxdata[3]);
+  LichtModiFarbpalette(dmxdata[anfangsAdresse], dmxdata[anfangsAdresse+1], dmxdata[anfangsAdresse+2]);
 }
