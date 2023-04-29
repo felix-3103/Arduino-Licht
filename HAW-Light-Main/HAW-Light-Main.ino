@@ -379,6 +379,8 @@ void printLogo() {
   for(int i = 0; i < NUM_LEDS; i++) {
     leds[i] = HAW_Logo[i];
   }
+  
+  FastLED.show();
 }
 
 // Hier soll entschieden werden, welcher Modi getriggert werden soll.
