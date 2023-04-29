@@ -83,6 +83,19 @@ bool in_Eingabe = false;
 // Variablen für Licht
 CRGB leds[NUM_LEDS];
 
+uint8_t HAW_Logo[] = {
+  0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000,
+  0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000,
+  0x000000, 0x000000, 0x000000, 0x000000, 0x0f46a3, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000,
+  0x000000, 0x0f46a3, 0x000000, 0x0f46a3, 0x000000, 0x0f46a3, 0x000000, 0x000000, 0x000000, 0x0f46a3,
+  0x000000, 0x0f46a3, 0x000000, 0x0f46a3, 0x0f46a3, 0x0f46a3, 0x000000, 0x000000, 0x000000, 0x0f46a3,
+  0x000000, 0x0f46a3, 0x0f46a3, 0x0f46a3, 0x000000, 0x0f46a3, 0x000000, 0x000000, 0x000000, 0x0f46a3,
+  0x000000, 0x0f46a3, 0x000000, 0x0f46a3, 0x000000, 0x0f46a3, 0x000000, 0x0f46a3, 0x000000, 0x0f46a3,
+  0x000000, 0x0f46a3, 0x000000, 0x0f46a3, 0x000000, 0x000000, 0x0f46a3, 0x000000, 0x0f46a3, 0x000000,
+  0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000,
+  0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000
+};
+
 uint8_t hue = 0;
 unsigned long previousTime = 0;
 unsigned long currentTime = 0;
@@ -134,8 +147,8 @@ void setup() {
   // Initialiserung der Hardware
   Serial.begin(115200);
   InitilizeLCD();
-  InitilizeMenu();
   InitilizeLight();
+  InitilizeMenu();
   InitilizeDMX();
 }
 
@@ -243,7 +256,6 @@ void InitilizeLCD() {
   lcd.print("Willkommen ;)");
   lcd.setCursor(0, 1);
   lcd.print("HAW-Light");
-  delay(2000);
 }
 
 // Hier soll das Menü initalisiert werden. Jeder Menüpunkt wird erzeugt inkl. der Parameter.
@@ -358,6 +370,15 @@ void InitilizeLight() {
   FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS);
   FastLED.setBrightness(BRIGHTNESS);// Lichtstärke setzen
   previousTime = currentTime;
+  printLogo();
+  delay(2000);
+}
+
+// Ausgabe des Logos auf der Matrix
+void printLogo() {
+  for(int i = 0; i < NUM_LEDS; i++) {
+    leds[i] = HAW_Logo[i];
+  }
 }
 
 // Hier soll entschieden werden, welcher Modi getriggert werden soll.
@@ -422,10 +443,6 @@ void LichtModiFunky(byte _tempo) {
   }
 
   FastLED.show();
-}
-
-void dynmischesLicht() {
-
 }
 
 // Funktion für den MODI 5 - Effektlicht
