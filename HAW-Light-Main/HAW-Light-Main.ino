@@ -103,7 +103,7 @@ unsigned long currentTime = 0;
 //Variablen für DMX
 int RX_Pin = 16;
 dmx_port_t dmxPort = 1;
-byte dmxdata [7];
+byte dmxdata [DMX_MAX_PACKET_SIZE];
 QueueHandle_t queue;
 bool dmxIsConnected = false;
 
@@ -298,7 +298,7 @@ void InitilizeMenu() {
   // MODI 6 - DMX
   Modi *dmx = new Modi();
   dmx->am_title = MODI_DMX;
-  dmx->am_parameterList.add(new Parameter("Adress:", 0, 512-4, 0, 1));
+  dmx->am_parameterList.add(new Parameter("Adress:", 1, 512-4, 1, 1));
   ModiList.add(dmx);
 
   // Einstellungen (Wird aber als Modi der Datenstruktur hinzugefügt)
@@ -363,6 +363,8 @@ void InitilizeDMX() {
     dmxPort, DMX_MAX_PACKET_SIZE,
     queueSize, &queue,
     interruptPriority);
+
+  printLogo();
 }
 
 // Initaliiserung der Strips
@@ -376,8 +378,25 @@ void InitilizeLight() {
 
 // Ausgabe des Logos auf der Matrix
 void printLogo() {
+
+  uint8_t mapLogo[NUM_LEDS];
+
+  for (int i = 0; i < 10; i++) {
+
+    for (int j = 0; j < 10; j++) {
+
+      if(i % 2 == 0) {
+        mapLogo[(i * 10) + j] = HAW_Logo[(i * 10) + j];
+      }
+
+      if(i % 2 == 1) {
+        mapLogo[(i * 10) + j] = HAW_Logo[(i * 10) + (9 - j)];
+      }
+    }
+  }
+
   for(int i = 0; i < NUM_LEDS; i++) {
-    leds[i] = HAW_Logo[i];
+    leds[i] = mapLogo[(NUM_LEDS - 1) - i];   
   }
   
   FastLED.show();
@@ -504,8 +523,10 @@ void LichtModiFarbpalette(byte _rot, byte _gruen, byte _blau) {
 void LichtModiDMX() {
   int anfangsAdresse = ModiList.get(e_dmx)->am_parameterList.get(0)->ap_parameter;
   dmx_event_t packet;
-  if (xQueueReceive(queue, &packet, DMX_PACKET_TIMEOUT_TICK))
-    if (packet.status == DMX_OK)
+  if (xQueueReceive(queue, &packet, DMX_PACKET_TIMEOUT_TICK)) {
+    if (packet.status == DMX_OK) {
       dmx_read_packet(dmxPort, dmxdata, packet.size);
+    }
+  }
   LichtModiFarbpalette(dmxdata[anfangsAdresse], dmxdata[anfangsAdresse+1], dmxdata[anfangsAdresse+2]);
 }
