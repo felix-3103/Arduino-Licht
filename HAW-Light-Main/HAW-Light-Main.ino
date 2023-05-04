@@ -205,7 +205,7 @@ void loop() {
             }
 
             case 0x09: {
-              // Navigation in der ParameterListe. Soll nur in eine Richtung gehen.
+              // Navigation in der ParameterListe aufwärts. Dabei sollen die Pfeile nach "Rechts" dienen.
               p_ParameterPosition++;
               if(p_ParameterPosition >= ModiList.get(p_ModiPosition)->am_parameterList.size()) {
                 p_ParameterPosition = 0;
@@ -214,7 +214,7 @@ void loop() {
             }
 
             case 0x07: {
-              // Navigation in der ParameterListe. Soll nur in eine Richtung gehen.
+              // Navigation in der ParameterListe abwärts. Dabei sollen die Pfeile nach "Links" dienen.
               p_ParameterPosition--;
               if(p_ParameterPosition <= 0) {
                 p_ParameterPosition = ModiList.get(p_ModiPosition)->am_parameterList.size() - 1;
@@ -256,6 +256,7 @@ void loop() {
       delay(100);
       IrReceiver.resume();
     } else {
+      // Wenn keine Navigation stattfindet, soll der aktuelle Modi ablaufen.
       RunModi(p_ModiPosition);
     }
 }
