@@ -1,3 +1,18 @@
+/*
+ ******************************************************************
+ ******************************************************************
+ *                                                                *
+ * Einrichtung: Hochschule der Angewandten Wissenschaften (HAW)   *
+ * Anschrift:  22081 Hamburg/ Finkenau 35                         *
+ * Projekt: Effect Light TV                                       *
+ *                                                                *
+ * Autor: Felix Ohlendorf, Samantha Schoppa                       *
+ * Version: 1.0                                                   *
+ *                                                                *
+ ******************************************************************
+ ******************************************************************
+ */
+
 #include <arduino.h>
 #include <esp_dmx.h>
 #include <LiquidCrystal_I2C.h>  // Bibliothek für die LCD Anzeige
@@ -5,7 +20,6 @@
 #include <IRremote.h>           // Bibliothek für die Verwendung der IR-Fernbedienung
 #include <Wire.h>               // Bibliothek wird für LCD I2C benötigt
 #include <FastLED.h>            // Bibliothek für die Nutzung eines LED Streifens
-
 
 // Sensor Makros
 #define IRRECIEVER_DATA_PIN 19
@@ -21,6 +35,8 @@
 
 // Licht Makros
 #define NUM_LEDS 100      // Anzahl der Pixel muss bei neuem Gehäuse angepasst werden.
+#define LED_ROWS 10
+#define LED_LINES 10
 #define LED_TYPE WS2812B
 #define COLOR_ORDER GRB
 #define BRIGHTNESS 192
@@ -38,6 +54,12 @@ enum e_Modi{
   e_settings
 };
 
+class Modi{
+  public:
+    String am_title;
+    LinkedList<Parameter*> am_parameterList;
+};
+
 class Parameter{
   public:
     String ap_title;
@@ -51,12 +73,6 @@ class Parameter{
       ap_min = min;
       ap_steps = steps;
     }
-};
-
-class Modi{
-  public:
-    String am_title;
-    LinkedList<Parameter*> am_parameterList;
 };
 
 // Datenstrukturen für Lichtprogrammierung
@@ -76,9 +92,9 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 // Variablen für die Menustruktur
 LinkedList<Modi*> ModiList = LinkedList<Modi*>();
-int p_ModiPosition = e_raumlicht;
-int p_ParameterPosition = 0;
-bool in_Eingabe = false;
+int p_ModiPosition{e_raumlicht};
+int p_ParameterPosition{0};
+bool in_Eingabe{false};
 
 // Variablen für Licht
 CRGB leds[NUM_LEDS];
@@ -96,16 +112,15 @@ uint8_t HAW_Logo[] = {
   0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000
 };
 
-uint8_t hue = 0;
-unsigned long previousTime = 0;
-unsigned long currentTime = 0;
+uint8_t hue{0};
+unsigned long previousTime{0}, currentTime{0};
 
 //Variablen für DMX
-int RX_Pin = 16;
-dmx_port_t dmxPort = 1;
+int RX_Pin{16};
+dmx_port_t dmxPort{1};
 byte dmxdata [DMX_MAX_PACKET_SIZE];
 QueueHandle_t queue;
-bool dmxIsConnected = false;
+bool dmxIsConnected{false};
 
 // Farbarrays
 Color* tempArray[] = {
@@ -144,8 +159,6 @@ void Settings(byte);
 
 // the setup function runs once when you press reset or power the board
 void setup() {
-  // Initialiserung der Hardware
-  Serial.begin(115200);
   InitilizeLCD();
   InitilizeLight();
   InitilizeMenu();
@@ -156,89 +169,90 @@ void loop() {
 
   if(IrReceiver.decode()) { 
 
-    Serial.println(IrReceiver.decodedIRData.command, HEX);
-
       // Navigation durch die ModiListe
       if (IrReceiver.decodedIRData.address == 0x0) {
+
+        unit8_t pressedKey = IrReceiver.decodedIRData.command;
         
-        if (IrReceiver.decodedIRData.command == 0x40) {
+        if (pressedKey == 0x40) {
           in_Eingabe = !in_Eingabe;
         }
         
         if(!in_Eingabe) {
-          if (IrReceiver.decodedIRData.command == 0x43) {
-            // Mit dem Button "Down" werden die Modi nacheinander abwärts durchgegangen. Dabei wird jeweils beim Ende nicht weitergegangen.
-            p_ModiPosition++;
 
-            if (p_ModiPosition >= ModiList.size()){
-              p_ModiPosition = ModiList.size() - 1;
-            }
-
-            p_ParameterPosition = 0;
-            in_Eingabe = false;
-          }
-
-          if (IrReceiver.decodedIRData.command == 0x44) {
-            // Mit dem Button "Up" werden die Modi nacheinander aufwärtsdurchgegangen. Dabei wird jeweils beim Anfang nicht weitergegangen.
-            p_ModiPosition --;
-
-            if (p_ModiPosition <= 0){
-              p_ModiPosition = 0;
-            }
-
-            p_ParameterPosition = 0;
-            in_Eingabe = false;
-          }
-
-          if (IrReceiver.decodedIRData.command == 0x09) {
-            // Navigation in der ParameterListe. Soll nur in eine Richtung gehen.
-            p_ParameterPosition++;
-            if(p_ParameterPosition >= ModiList.get(p_ModiPosition)->am_parameterList.size()) {
+          switch(pressedKey) {
+                        
+            case 0x43: {
+              // Mit dem Button "Down" werden die Modi nacheinander abwärts durchgegangen. Dabei wird jeweils beim Ende nicht weitergegangen.
+              p_ModiPosition++;
+              if (p_ModiPosition >= ModiList.size()){
+                p_ModiPosition = ModiList.size() - 1;
+              }
               p_ParameterPosition = 0;
+              in_Eingabe = false;
+              break;              
             }
-          }
 
-          if (IrReceiver.decodedIRData.command == 0x07) {
-            // Navigation in der ParameterListe. Soll nur in eine Richtung gehen.
-            p_ParameterPosition--;
-            if(p_ParameterPosition <= 0) {
-              p_ParameterPosition = ModiList.get(p_ModiPosition)->am_parameterList.size() - 1;
+            case 0x44: {
+              // Mit dem Button "Up" werden die Modi nacheinander aufwärtsdurchgegangen. Dabei wird jeweils beim Anfang nicht weitergegangen.
+              p_ModiPosition --;
+              if (p_ModiPosition <= 0){
+                p_ModiPosition = 0;
+              }
+              p_ParameterPosition = 0;
+              in_Eingabe = false;
+              break;
             }
-          }              
+
+            case 0x09: {
+              // Navigation in der ParameterListe. Soll nur in eine Richtung gehen.
+              p_ParameterPosition++;
+              if(p_ParameterPosition >= ModiList.get(p_ModiPosition)->am_parameterList.size()) {
+                p_ParameterPosition = 0;
+              }
+              break;
+            }
+
+            case 0x07: {
+              // Navigation in der ParameterListe. Soll nur in eine Richtung gehen.
+              p_ParameterPosition--;
+              if(p_ParameterPosition <= 0) {
+                p_ParameterPosition = ModiList.get(p_ModiPosition)->am_parameterList.size() - 1;
+              }
+              break;       
+            }
+          }             
         }
 
-
         if(in_Eingabe) {
+          
           int eingabeWert = ModiList.get(p_ModiPosition)->am_parameterList.get(p_ParameterPosition)->ap_parameter;
           int maximalerWert = ModiList.get(p_ModiPosition)->am_parameterList.get(p_ParameterPosition)->ap_max;
           int minimalerWert = ModiList.get(p_ModiPosition)->am_parameterList.get(p_ParameterPosition)->ap_min;
           int schritte = ModiList.get(p_ModiPosition)->am_parameterList.get(p_ParameterPosition)->ap_steps;
 
-          if(IrReceiver.decodedIRData.command == 0x46) {
-            eingabeWert = eingabeWert + schritte;
-
-            if(eingabeWert > maximalerWert) {
-              eingabeWert = maximalerWert;
+          switch(pressedKey) {
+            case 0x46: {
+              eingabeWert = eingabeWert + schritte;
+              if(eingabeWert > maximalerWert) {
+                eingabeWert = maximalerWert;
+              }
+              ModiList.get(p_ModiPosition)->am_parameterList.get(p_ParameterPosition)->ap_parameter = eingabeWert;
+              break;
             }
 
-            ModiList.get(p_ModiPosition)->am_parameterList.get(p_ParameterPosition)->ap_parameter = eingabeWert;
-          }
-
-          if(IrReceiver.decodedIRData.command == 0x15) {
-            eingabeWert = eingabeWert - schritte;
-
-            if(eingabeWert < minimalerWert) {
-              eingabeWert = minimalerWert;
+            case 0x15: {
+              eingabeWert = eingabeWert - schritte;
+              if(eingabeWert < minimalerWert) {
+                eingabeWert = minimalerWert;
+              }
+              ModiList.get(p_ModiPosition)->am_parameterList.get(p_ParameterPosition)->ap_parameter = eingabeWert;
             }
-
-            ModiList.get(p_ModiPosition)->am_parameterList.get(p_ParameterPosition)->ap_parameter = eingabeWert;
           }
         }
       }
-
       // Am Ende soll der aktuelle Menüpunkt auf den LCD Display ausgegeben werden.
       PrintModi(p_ModiPosition, p_ParameterPosition);
-      delay(100);
       IrReceiver.resume();
     } else {
       RunModi(p_ModiPosition);
@@ -247,15 +261,13 @@ void loop() {
 
 // Hier soll die LCD Anzeige Initalisiert werden.
 void InitilizeLCD() {
-  Serial.begin(9600);
   IrReceiver.begin(IRRECIEVER_DATA_PIN);
-
   Wire.begin();
   lcd.init();
   lcd.backlight();
-  lcd.print("Willkommen ;)");
+  lcd.print("Willkommen beim");
   lcd.setCursor(0, 1);
-  lcd.print("HAW-Light");
+  lcd.print("Effect Light TV");
 }
 
 // Hier soll das Menü initalisiert werden. Jeder Menüpunkt wird erzeugt inkl. der Parameter.
@@ -298,7 +310,7 @@ void InitilizeMenu() {
   // MODI 6 - DMX
   Modi *dmx = new Modi();
   dmx->am_title = MODI_DMX;
-  dmx->am_parameterList.add(new Parameter("Adress:", 1, 512-4, 1, 1));
+  dmx->am_parameterList.add(new Parameter("Adresse", 1, 512, 1, 1));
   ModiList.add(dmx);
 
   // Einstellungen (Wird aber als Modi der Datenstruktur hinzugefügt)
@@ -381,16 +393,18 @@ void printLogo() {
 
   uint8_t mapLogo[NUM_LEDS];
 
-  for (int i = 0; i < 10; i++) {
+  for (int i = 0; i < LED_LINES; i++) {
 
-    for (int j = 0; j < 10; j++) {
+    for (int j = 0; j < LED_ROWS; j++) {
 
-      if(i % 2 == 0) {
-        mapLogo[(i * 10) + j] = HAW_Logo[(i * 10) + j];
-      }
+      if(i % 2) {
+        
+        mapLogo[(i * LED_ROWS) + j] = HAW_Logo[(i * LED_ROWS) + ((LED_ROWS - 1) - j)];
 
-      if(i % 2 == 1) {
-        mapLogo[(i * 10) + j] = HAW_Logo[(i * 10) + (9 - j)];
+      } else {
+
+        mapLogo[(i * LED_ROWS) + j] = HAW_Logo[(i * LED_ROWS) + j];
+        
       }
     }
   }
@@ -472,11 +486,11 @@ void LichtModiRainbow(byte _tempo) {
   unsigned long newtempo = map(_tempo, 0, 100, 30, 0);
 
   //farbe vergeben
-  for(int j = 0; j < 10; j++) {
+  for(int j = 0; j < LED_ROWS; j++) {
     leds[j] = CHSV(hue + (j*10), 255, 255);
   }
 
-  for (int i =10; i < NUM_LEDS; i++) {
+  for (int i = 10; i < NUM_LEDS; i++) {
     int Zeilennummer = (i / 10) % 2;
 
     //Grade Zeilen füllen
@@ -528,5 +542,5 @@ void LichtModiDMX() {
       dmx_read_packet(dmxPort, dmxdata, packet.size);
     }
   }
-  LichtModiFarbpalette(dmxdata[anfangsAdresse], dmxdata[anfangsAdresse+1], dmxdata[anfangsAdresse+2]);
+  LichtModiFarbpalette(dmxdata[anfangsAdresse], dmxdata[anfangsAdresse + 1], dmxdata[anfangsAdresse + 2]);
 }
