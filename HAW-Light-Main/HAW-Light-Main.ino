@@ -253,6 +253,7 @@ void loop() {
       }
       // Am Ende soll der aktuelle Menüpunkt auf den LCD Display ausgegeben werden.
       PrintModi(p_ModiPosition, p_ParameterPosition);
+      delay(100);
       IrReceiver.resume();
     } else {
       RunModi(p_ModiPosition);
