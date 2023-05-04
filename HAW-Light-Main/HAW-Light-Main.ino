@@ -2,7 +2,7 @@
  ******************************************************************
  ******************************************************************
  *                                                                *
- * Einrichtung: Hochschule der Angewandten Wissenschaften (HAW)   *
+ * Einrichtung: Hochschule für Angewandten Wissenschaften (HAW)   *
  * Anschrift:  22081 Hamburg/ Finkenau 35                         *
  * Projekt: Effect Light TV                                       *
  *                                                                *
