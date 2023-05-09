@@ -124,7 +124,7 @@ uint32_t Mario[] = {
   0xFFFAFA, 0xFF0000, 0xFF0000, 0xFF0000, 0xFF0000, 0xFF0000, 0xFF0000, 0xFF0000, 0xFF0000, 0xFFFAFA,
   0xFFFAFA, 0x8B4513, 0xFFE4C4, 0x00008B, 0xFFE4C4, 0xFFE4C4, 0x00008B, 0xFFE4C4, 0x8B4513, 0xFFFAFA,
   0xFFFAFA, 0xFFE4C4, 0xFFE4C4, 0x8B4513, 0x8B4513, 0x8B4513, 0x8B4513, 0xFFE4C4, 0xFFE4C4, 0xFFFAFA,
-  0xFFFAFA, 0xFFFAFA, 0xFFE4C4, 0xFFE4C4, 0xFFE4C4, 0xFFE4C4, 0xFFE4C4, 0xFFE4C4, 0x000000, 0xFFFAFA,
+  0xFFFAFA, 0xFFFAFA, 0xFFE4C4, 0xFFE4C4, 0xFFE4C4, 0xFFE4C4, 0xFFE4C4, 0xFFE4C4, 0xFFFAFA, 0xFFFAFA,
   0xFFE4C4, 0xFF0000, 0x1E90FF, 0xFF0000, 0xFF0000, 0xFF0000, 0xFF0000, 0x1E90FF, 0xFF0000, 0xFFE4C4,
   0xFFE4C4, 0xFF0000, 0xFFD700, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0xFFD700, 0xFF0000, 0xFFE4C4,
   0xFFFAFA, 0xFFFAFA, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0xFFFAFA, 0xFFFAFA,
@@ -149,20 +149,26 @@ enum e_Bilder {
   e_HAW,
   e_Mario,
   e_Luigi
-}
+};
 
 class Bilder {
   public:
     String ab_title;
-    uint32_t ab_Bildpixel[NUM_LEDS];
-  
-  Bilder(String title, uint32_t bild) {
+    uint32_t ab_Pixelarray[NUM_LEDS];
+
+  Bilder(String title, uint32_t* pixels);
+};
+
+Bilder::Bilder(String title, uint32_t* pixels){
     ab_title = title;
-    ab_Bildpixel = bild;
-  }
+
+    for(int i = 0; i < NUM_LEDS; i++) {
+      ab_Pixelarray[i] = pixels[i];
+    }
+
 }
 
-Bilder Bildarray[] = {
+Bilder* Bilderarray[] = {
   new Bilder("HAW Logo", HAW_Logo),
   new Bilder("Mario", Mario),
   new Bilder("Luigi", Luigi)
@@ -369,7 +375,7 @@ void InitilizeMenu() {
   // MODI 6 - Pixelart
   Modi *pixelart = new Modi();
   pixelart->am_title = MODI_PIXELART;
-  pixelart->am_parameterList.add(new Parameter("Figur", 0, (sizeof(Bildarray[])/sizeof(Bildarray[0])) - 1, 0, 1));
+  pixelart->am_parameterList.add(new Parameter("Figur", 0, (sizeof(Bilderarray)/sizeof(Bilderarray[0])) - 1, 0, 1));
   ModiList.add(pixelart);
 
   // Einstellungen (Wird aber als Modi der Datenstruktur hinzugefügt)
@@ -423,7 +429,7 @@ void PrintModi(int positionModi, int positionParameter) {
     }
 
     case e_pixelart: {
-      lcd.print(Bildarray[positionLicht]->ab_title);
+      lcd.print(Bilderarray[positionLicht]->ab_title);
       break;   
     }
 
@@ -452,7 +458,7 @@ void InitilizeDMX() {
 
 // Initaliiserung der Strips
 void InitilizeLight() {
-  FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS)//.setCorrection(TypicalSMD5050);
+  FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS);//.setCorrection(TypicalSMD5050);
   FastLED.setBrightness(BRIGHTNESS);// Lichtstärke setzen
   previousTime = currentTime;
   printLogo();
@@ -470,27 +476,6 @@ void printLogo() {
         mapLogo[(i * LED_ROWS) + j] = HAW_Logo[(i * LED_ROWS) + ((LED_ROWS - 1) - j)];
       } else {
         mapLogo[(i * LED_ROWS) + j] = HAW_Logo[(i * LED_ROWS) + j];
-      }
-    }
-  }
-
-  for(int i = 0; i < NUM_LEDS; i++) {
-    leds[i] = mapLogo[(NUM_LEDS - 1) - i];   
-  }
-  
-  FastLED.show();
-}
-
-void printBild(uint32_t _bildArray[NUM_LEDS]) {
-
-  uint32_t mapLogo[NUM_LEDS];
-
-  for (int i = 0; i < LED_LINES; i++) {
-    for (int j = 0; j < LED_ROWS; j++) {
-      if(i % 2) {   
-        mapLogo[(i * LED_ROWS) + j] = _bildArray[(i * LED_ROWS) + ((LED_ROWS - 1) - j)];
-      } else {
-        mapLogo[(i * LED_ROWS) + j] = _bildArray[(i * LED_ROWS) + j];
       }
     }
   }
@@ -528,7 +513,8 @@ void RunModi(byte _position) {
     }
 
     case e_pixelart: {
-      LichtModiPixelart(ModiList.get(e_pixelart)->am_parameterList.get(0)->ap_parameter);
+      byte Bildposition = ModiList.get(e_pixelart)->am_parameterList.get(0)->ap_parameter;
+      LichtModiPixelart(Bilderarray[Bildposition]->ab_Pixelarray);
       break;
     }
       
@@ -624,18 +610,24 @@ void LichtModiFarbpalette(byte _rot, byte _gruen, byte _blau) {
 }
 
 // Funktion für den MODI 6 - Pixelart
-void LichtModiPixelart(byte _bild) {
-  switch (_bild) {
-    case e_Mario: {
-      printBild(Mario);
-    }
-    case e_Luigi: {
-      printBild(Luigi);
-    }
-    case e_HAW: {
-      printBild(Luigi);
+void LichtModiPixelart(uint32_t* _bildArray) {
+  uint32_t mapLogo[NUM_LEDS];
+
+  for (int i = 0; i < LED_LINES; i++) {
+    for (int j = 0; j < LED_ROWS; j++) {
+      if(i % 2) {   
+        mapLogo[(i * LED_ROWS) + j] = _bildArray[(i * LED_ROWS) + ((LED_ROWS - 1) - j)];
+      } else {
+        mapLogo[(i * LED_ROWS) + j] = _bildArray[(i * LED_ROWS) + j];
+      }
     }
   }
+
+  for(int i = 0; i < NUM_LEDS; i++) {
+    leds[i] = mapLogo[(NUM_LEDS - 1) - i];   
+  }
+  
+  FastLED.show();
 }
 
 // Funktion für den MODI 5 - DMX
