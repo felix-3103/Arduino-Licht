@@ -1,3 +1,4 @@
+
 /*
  ******************************************************************
  ******************************************************************
@@ -32,6 +33,7 @@
 #define MODI_FARBEPALETTE "Farbpalette"
 #define MODI_FARBE "Farbe"
 #define MODI_SETTINGS "Einstellungen"
+#define MODI_PIXELART "Pixelart"
 
 // Licht Makros
 #define NUM_LEDS 100      // Anzahl der Pixel muss bei neuem Gehäuse angepasst werden.
@@ -50,8 +52,9 @@ enum e_Modi{
   e_farbpalette,
   e_funky,
   e_rainbow,
-  e_dmx,
-  e_settings
+  e_pixelart,
+  e_settings,
+  e_dmx
 };
 
 class Parameter{
@@ -102,7 +105,8 @@ unsigned long inputPreviousTime{0}, inputCurrentTime{0};
 // Variablen für Licht
 CRGB leds[NUM_LEDS];
 
-uint8_t HAW_Logo[] = {
+//Variablen für die Bildausgabe
+uint32_t HAW_Logo[] = {
   0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000,
   0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000,
   0x000000, 0x000000, 0x000000, 0x000000, 0x0f46a3, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000,
@@ -114,6 +118,57 @@ uint8_t HAW_Logo[] = {
   0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000,
   0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000
 };
+
+uint32_t Mario[] = {
+  0xFFFAFA, 0xFFFAFA, 0xFF0000, 0xFF0000, 0xFFFAFA, 0xFFFAFA, 0xFF0000, 0xFF0000, 0xFFFAFA, 0xFFFAFA,
+  0xFFFAFA, 0xFF0000, 0xFF0000, 0xFF0000, 0xFF0000, 0xFF0000, 0xFF0000, 0xFF0000, 0xFF0000, 0xFFFAFA,
+  0xFFFAFA, 0x8B4513, 0xFFE4C4, 0x00008B, 0xFFE4C4, 0xFFE4C4, 0x00008B, 0xFFE4C4, 0x8B4513, 0xFFFAFA,
+  0xFFFAFA, 0xFFE4C4, 0xFFE4C4, 0x8B4513, 0x8B4513, 0x8B4513, 0x8B4513, 0xFFE4C4, 0xFFE4C4, 0xFFFAFA,
+  0xFFFAFA, 0xFFFAFA, 0xFFE4C4, 0xFFE4C4, 0xFFE4C4, 0xFFE4C4, 0xFFE4C4, 0xFFE4C4, 0x000000, 0xFFFAFA,
+  0xFFE4C4, 0xFF0000, 0x1E90FF, 0xFF0000, 0xFF0000, 0xFF0000, 0xFF0000, 0x1E90FF, 0xFF0000, 0xFFE4C4,
+  0xFFE4C4, 0xFF0000, 0xFFD700, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0xFFD700, 0xFF0000, 0xFFE4C4,
+  0xFFFAFA, 0xFFFAFA, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0xFFFAFA, 0xFFFAFA,
+  0xFFFAFA, 0xFFFAFA, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0xFFFAFA, 0xFFFAFA,
+  0xFFFAFA, 0xFFFAFA, 0x8B4513, 0x8B4513, 0xFFFAFA, 0xFFFAFA, 0x8B4513, 0x8B4513, 0xFFFAFA, 0xFFFAFA
+};
+
+uint32_t Luigi[] = {
+  0xFFFAFA, 0xFFFAFA, 0x228B22, 0x228B22, 0xFFFAFA, 0xFFFAFA, 0x228B22, 0x228B22, 0xFFFAFA, 0xFFFAFA,
+  0xFFFAFA, 0x228B22, 0x228B22, 0x228B22, 0x228B22, 0x228B22, 0x228B22, 0x228B22, 0x228B22, 0xFFFAFA,
+  0xFFFAFA, 0x000000, 0xFFE4C4, 0x00008B, 0xFFE4C4, 0xFFE4C4, 0x00008B, 0xFFE4C4, 0x000000, 0xFFFAFA,
+  0xFFFAFA, 0xFFE4C4, 0xFFE4C4, 0x000000, 0x000000, 0x000000, 0x000000, 0xFFE4C4, 0xFFE4C4, 0xFFFAFA,
+  0xFFFAFA, 0xFFFAFA, 0xFFE4C4, 0xFFE4C4, 0xFFE4C4, 0xFFE4C4, 0xFFE4C4, 0xFFE4C4, 0xFFFAFA, 0xFFFAFA,
+  0xFFE4C4, 0x228B22, 0x1E90FF, 0x228B22, 0x228B22, 0x228B22, 0x228B22, 0x1E90FF, 0x228B22, 0xFFE4C4,
+  0xFFE4C4, 0x228B22, 0xFFD700, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0xFFD700, 0x228B22, 0xFFE4C4,
+  0xFFFAFA, 0xFFFAFA, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0xFFFAFA, 0xFFFAFA,
+  0xFFFAFA, 0xFFFAFA, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0x1E90FF, 0xFFFAFA, 0xFFFAFA,
+  0xFFFAFA, 0xFFFAFA, 0x8B4513, 0x8B4513, 0xFFFAFA, 0xFFFAFA, 0x8B4513, 0x8B4513, 0xFFFAFA, 0xFFFAFA
+};
+
+enum e_Bilder {
+  e_HAW,
+  e_Mario,
+  e_Luigi
+}
+
+class Bilder {
+  public:
+    String ab_title;
+    uint32_t ab_Bildpixel[NUM_LEDS];
+  
+  Bilder(String title, uint32_t bild) {
+    ab_title = title;
+    ab_Bildpixel = bild;
+  }
+}
+
+Bilder Bildarray[] = {
+  new Bilder("HAW Logo", HAW_Logo),
+  new Bilder("Mario", Mario),
+  new Bilder("Luigi", Luigi)
+};
+
+
 
 uint8_t hue{0};
 unsigned long previousTime{0}, currentTime{0};
@@ -158,6 +213,7 @@ void LichtModiRainbow(byte);
 void LichtModiRaum(byte);
 void LichtModiFarbe(CRGB);
 void LichtModiFarbpalette(byte , byte, byte);
+void LichtModiPixelart(byte);
 void Settings(byte);
 
 // the setup function runs once when you press reset or power the board
@@ -310,17 +366,23 @@ void InitilizeMenu() {
   rainbow->am_parameterList.add(new Parameter("Tempo(%)", 10, 100, 10, 10));
   ModiList.add(rainbow);
 
-  // MODI 6 - DMX
-  Modi *dmx = new Modi();
-  dmx->am_title = MODI_DMX;
-  dmx->am_parameterList.add(new Parameter("Adresse", 1, 512, 1, 1));
-  ModiList.add(dmx);
+  // MODI 6 - Pixelart
+  Modi *pixelart = new Modi();
+  pixelart->am_title = MODI_PIXELART;
+  pixelart->am_parameterList.add(new Parameter("Figur", 0, (sizeof(Bildarray[])/sizeof(Bildarray[0])) - 1, 0, 1));
+  ModiList.add(pixelart);
 
   // Einstellungen (Wird aber als Modi der Datenstruktur hinzugefügt)
   Modi *settings = new Modi();
   settings->am_title = MODI_SETTINGS;
   settings->am_parameterList.add(new Parameter("Hellig.(%)", 100, 100, 0, 10));
   ModiList.add(settings);
+
+   // MODI 7 - DMX
+  Modi *dmx = new Modi();
+  dmx->am_title = MODI_DMX;
+  dmx->am_parameterList.add(new Parameter("Adresse", 1, 512, 1, 1));
+  ModiList.add(dmx);
 
   // Startposition setzen
   PrintModi(p_ModiPosition, p_ParameterPosition);
@@ -359,6 +421,12 @@ void PrintModi(int positionModi, int positionParameter) {
       lcd.print(farbArray[positionLicht]->am_title);
       break;   
     }
+
+    case e_pixelart: {
+      lcd.print(Bildarray[positionLicht]->ab_title);
+      break;   
+    }
+
     default: {
       lcd.setCursor(16-4,1);
       lcd.print(ModiList.get(positionModi)->am_parameterList.get(positionParameter)->ap_parameter);
@@ -384,7 +452,7 @@ void InitilizeDMX() {
 
 // Initaliiserung der Strips
 void InitilizeLight() {
-  FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalSMD5050);
+  FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS)//.setCorrection(TypicalSMD5050);
   FastLED.setBrightness(BRIGHTNESS);// Lichtstärke setzen
   previousTime = currentTime;
   printLogo();
@@ -394,7 +462,7 @@ void InitilizeLight() {
 // Ausgabe des Logos auf der Matrix
 void printLogo() {
 
-  uint8_t mapLogo[NUM_LEDS];
+  uint32_t mapLogo[NUM_LEDS];
 
   for (int i = 0; i < LED_LINES; i++) {
     for (int j = 0; j < LED_ROWS; j++) {
@@ -402,6 +470,27 @@ void printLogo() {
         mapLogo[(i * LED_ROWS) + j] = HAW_Logo[(i * LED_ROWS) + ((LED_ROWS - 1) - j)];
       } else {
         mapLogo[(i * LED_ROWS) + j] = HAW_Logo[(i * LED_ROWS) + j];
+      }
+    }
+  }
+
+  for(int i = 0; i < NUM_LEDS; i++) {
+    leds[i] = mapLogo[(NUM_LEDS - 1) - i];   
+  }
+  
+  FastLED.show();
+}
+
+void printBild(uint32_t _bildArray[NUM_LEDS]) {
+
+  uint32_t mapLogo[NUM_LEDS];
+
+  for (int i = 0; i < LED_LINES; i++) {
+    for (int j = 0; j < LED_ROWS; j++) {
+      if(i % 2) {   
+        mapLogo[(i * LED_ROWS) + j] = _bildArray[(i * LED_ROWS) + ((LED_ROWS - 1) - j)];
+      } else {
+        mapLogo[(i * LED_ROWS) + j] = _bildArray[(i * LED_ROWS) + j];
       }
     }
   }
@@ -438,11 +527,16 @@ void RunModi(byte _position) {
       break;
     }
 
+    case e_pixelart: {
+      LichtModiPixelart(ModiList.get(e_pixelart)->am_parameterList.get(0)->ap_parameter);
+      break;
+    }
+      
     case e_dmx: {
       LichtModiDMX();
       break;
     }
-      
+
     case e_farbpalette: {
       byte rotAnteil = ModiList.get(e_farbpalette)->am_parameterList.get(0)->ap_parameter;
       byte gruenAnteil = ModiList.get(e_farbpalette)->am_parameterList.get(1)->ap_parameter;
@@ -527,6 +621,21 @@ void LichtModiFarbpalette(byte _rot, byte _gruen, byte _blau) {
     leds[i] = CRGB(_rot, _gruen, _blau);
   }
   FastLED.show();
+}
+
+// Funktion für den MODI 6 - Pixelart
+void LichtModiPixelart(byte _bild) {
+  switch (_bild) {
+    case e_Mario: {
+      printBild(Mario);
+    }
+    case e_Luigi: {
+      printBild(Luigi);
+    }
+    case e_HAW: {
+      printBild(Luigi);
+    }
+  }
 }
 
 // Funktion für den MODI 5 - DMX
