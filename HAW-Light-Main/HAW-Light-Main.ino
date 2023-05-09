@@ -54,12 +54,6 @@ enum e_Modi{
   e_settings
 };
 
-class Modi{
-  public:
-    String am_title;
-    LinkedList<Parameter*> am_parameterList;
-};
-
 class Parameter{
   public:
     String ap_title;
@@ -73,6 +67,12 @@ class Parameter{
       ap_min = min;
       ap_steps = steps;
     }
+};
+
+class Modi{
+  public:
+    String am_title;
+    LinkedList<Parameter*> am_parameterList;
 };
 
 // Datenstrukturen für Lichtprogrammierung
@@ -95,6 +95,9 @@ LinkedList<Modi*> ModiList = LinkedList<Modi*>();
 int p_ModiPosition{e_raumlicht};
 int p_ParameterPosition{0};
 bool in_Eingabe{false};
+
+//Millistimer für die Menüeingabe, damit die den Anschein erweckt vollständig parallel zu laufen
+unsigned long inputPreviousTime{0}, inputCurrentTime{0};
 
 // Variablen für Licht
 CRGB leds[NUM_LEDS];
@@ -171,16 +174,14 @@ void loop() {
 
       // Navigation durch die ModiListe
       if (IrReceiver.decodedIRData.address == 0x0) {
-
-        unit8_t pressedKey = IrReceiver.decodedIRData.command;
         
-        if (pressedKey == 0x40) {
+        if (IrReceiver.decodedIRData.command == 0x40) {
           in_Eingabe = !in_Eingabe;
         }
         
         if(!in_Eingabe) {
 
-          switch(pressedKey) {
+          switch(IrReceiver.decodedIRData.command) {
                         
             case 0x43: {
               // Mit dem Button "Down" werden die Modi nacheinander abwärts durchgegangen. Dabei wird jeweils beim Ende nicht weitergegangen.
@@ -231,7 +232,7 @@ void loop() {
           int minimalerWert = ModiList.get(p_ModiPosition)->am_parameterList.get(p_ParameterPosition)->ap_min;
           int schritte = ModiList.get(p_ModiPosition)->am_parameterList.get(p_ParameterPosition)->ap_steps;
 
-          switch(pressedKey) {
+          switch(IrReceiver.decodedIRData.command) {
             case 0x46: {
               eingabeWert = eingabeWert + schritte;
               if(eingabeWert > maximalerWert) {
@@ -253,7 +254,7 @@ void loop() {
       }
       // Am Ende soll der aktuelle Menüpunkt auf den LCD Display ausgegeben werden.
       PrintModi(p_ModiPosition, p_ParameterPosition);
-      delay(100);
+      delay(200);
       IrReceiver.resume();
     } else {
       // Wenn keine Navigation stattfindet, soll der aktuelle Modi ablaufen.
@@ -375,15 +376,15 @@ void InitilizeDMX() {
   int interruptPriority = 1;
   dmx_driver_install(
     dmxPort, DMX_MAX_PACKET_SIZE,
-    queueSize, &queue,
+    queueSize,
+    &queue,
     interruptPriority);
-
   printLogo();
 }
 
 // Initaliiserung der Strips
 void InitilizeLight() {
-  FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS);
+  FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalSMD5050);
   FastLED.setBrightness(BRIGHTNESS);// Lichtstärke setzen
   previousTime = currentTime;
   printLogo();
@@ -396,17 +397,11 @@ void printLogo() {
   uint8_t mapLogo[NUM_LEDS];
 
   for (int i = 0; i < LED_LINES; i++) {
-
     for (int j = 0; j < LED_ROWS; j++) {
-
-      if(i % 2) {
-        
+      if(i % 2) {   
         mapLogo[(i * LED_ROWS) + j] = HAW_Logo[(i * LED_ROWS) + ((LED_ROWS - 1) - j)];
-
       } else {
-
         mapLogo[(i * LED_ROWS) + j] = HAW_Logo[(i * LED_ROWS) + j];
-        
       }
     }
   }
@@ -461,7 +456,6 @@ void RunModi(byte _position) {
       LichtModiFarbe(farbArray[LichtNummer]->am_color);
       break;
     }
-
   }
 }
 
