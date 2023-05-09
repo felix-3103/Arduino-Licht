@@ -1,4 +1,3 @@
-
 /*
  ******************************************************************
  ******************************************************************
@@ -14,18 +13,32 @@
  ******************************************************************
  */
 
+/*
+ *
+ * Teil 1: Einbinden der Bibliotheken als Header-Datei
+ *
+ */
+
 #include <arduino.h>
-#include <esp_dmx.h>
+#include <esp_dmx.h>            // Bibliothek für den DMX Modi
 #include <LiquidCrystal_I2C.h>  // Bibliothek für die LCD Anzeige
 #include <LinkedList.h>         // Bibliothek für die Datenstruktur des Menüs
 #include <IRremote.h>           // Bibliothek für die Verwendung der IR-Fernbedienung
 #include <Wire.h>               // Bibliothek wird für LCD I2C benötigt
 #include <FastLED.h>            // Bibliothek für die Nutzung eines LED Streifens
 
+/*
+ *
+ * Teil 2: Definition wichtiger Makros
+ *
+ */
+
 // Sensor Makros
-#define IRRECIEVER_DATA_PIN 19
+#define IRRECIEVER_DATA_PIN 19  // Der Datenpin des IR Receivers liegt auf der 19
 
 // Menü Makros
+
+// Die Namen der Modis wurden hier vorab als Makros definiert.
 #define MODI_DMX "DMX"
 #define MODI_FUNKY "Funky"
 #define MODI_RAINBOW "Rainbow"
@@ -37,15 +50,22 @@
 
 // Licht Makros
 #define NUM_LEDS 100      // Anzahl der Pixel muss bei neuem Gehäuse angepasst werden.
-#define LED_ROWS 10
-#define LED_LINES 10
-#define LED_TYPE WS2812B
+#define LED_ROWS 10       // Anzahl der Spalten der LED Matrix
+#define LED_LINES 10      // Anzahl der Zeilen der LED Matrix
+#define LED_TYPE WS2812B  // Typ der LEDs auf dem Streifen sind vom Typ WS2812B 
 #define COLOR_ORDER GRB
-#define BRIGHTNESS 192
-#define DATA_PIN 5
+#define BRIGHTNESS 192    // Die maximale Brightness sollte generell nicht mehr als 192 von 255 betragen
+#define DATA_PIN 5        // Der Datenpin an dem die LED Matrix angeschlossen ist, ist die Nummer 5
 
 
-// Datenstrukturen für die Menüstruktur
+/*
+ *
+ * Teil 3: Definition alle Datenstrukturen und Variablen
+ *
+ */
+
+// Für die Modis wurde ein enum erstellt.
+// Hierbei steht eine Zahl für ein Name innerhalb des enums für eine Zahl und um genauer zu sein für die Position des Modis.
 enum e_Modi{
   e_raumlicht,
   e_farbe,
@@ -57,6 +77,25 @@ enum e_Modi{
   e_dmx
 };
 
+/*
+
+Generell soll dem ganzen System eine Art "Datenbank" zugrunde liegen. Das oberste Ziel eines jeden Programms ist die Modularität.
+Das bedeutet zum einen eine einfache Erweiterbarkeit und dennoch Geschlossenheit. Gleichzeitig ist es wichtig innerhalb des Programms
+möglichst kleinschrittig zu areiten. Damit sollte das der Code möglichst einfach in Funktionen zerlegt werden.
+Damit diese Ziele erreicht werden liegt als Datenstruktur der Datenbank das Modell einer Liste zugrunde. Eine Liste besteht aus beliebig vielen Elementen.
+Diese Liste kann jeder Zeit um ein Element ergänzt werden.
+
+Nach der Zerlegen der Funktionen aus dem Pflichtenheft kann die Struktur auf folgende Klassen zurückgeführt werden.
+Generell gibt es Modi. Diese lassen sich mit einem Namen und beliebig vielen Parametern beschreiben.
+Diese beliebig viele Parameter wurden als Liste realisiert.
+
+Ein Parameter wird zum einen ebenfalls mit einem Namen beschriben. Weitere Attribute sind der Wert des Parameter.
+Dabei kann ein Parameter einen minimalen und maximalen Wert aufweisen. Wenn der Nutzende später mit der Fernbedienung die Werte verändert
+kann ein Einstellen der Farbe zwischen 0 bis 255 mit einer Schrittweite von 1 sehr lange Dauern.
+Aus diesem Grund wird dem dem Parameter eine variable Schrittweite mitgegeben.
+
+*/
+
 class Parameter{
   public:
     String ap_title;
@@ -64,6 +103,8 @@ class Parameter{
     byte ap_max, ap_min, ap_steps;
 
     Parameter(String title, byte parameter, byte max = 255, byte min = 0, byte steps = 5) {
+      // Der Konstruktor beinhaltet die 5 Attribute, die gesetzt werden können.
+      // Dabei ist der minimal, maximal Wert sowei die schrittweite Standardmäßig gesetzt.
       ap_title = title;
       ap_parameter = parameter;
       ap_max = max;
@@ -78,34 +119,24 @@ class Modi{
     LinkedList<Parameter*> am_parameterList;
 };
 
-// Datenstrukturen für Lichtprogrammierung
-class Color{
-  public:
-    String am_title;
-    CRGB am_color;
-
-  Color(String title, CRGB color) {
-    am_title = title;
-    am_color = color;
-  }
-};
-
 // Variablen für die Hardwarekomponenten
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 // Variablen für die Menustruktur
-LinkedList<Modi*> ModiList = LinkedList<Modi*>();
-int p_ModiPosition{e_raumlicht};
-int p_ParameterPosition{0};
+LinkedList<Modi*> ModiList = LinkedList<Modi*>(); // Bildet die Liste aller Modis
+int p_ModiPosition{e_raumlicht};    // Variable für die aktuelle Position in der Modiliste.
+                                    // Wird initialisiert mit dem Startmodi Raumlicht.
+int p_ParameterPosition{0};         // Die Position in der Parameterliste eines Modis soll standardmäßig auf 0 sein.
 bool in_Eingabe{false};
 
-//Millistimer für die Menüeingabe, damit die den Anschein erweckt vollständig parallel zu laufen
-unsigned long inputPreviousTime{0}, inputCurrentTime{0};
-
 // Variablen für Licht
-CRGB leds[NUM_LEDS];
+
+CRGB leds[NUM_LEDS];  // Bildet den Array über alle LEDS und deren Farbzustand.
 
 //Variablen für die Bildausgabe
+
+// Die Arrays HAW_Logo, Mario und Luigi sind Bilder die auf der LED Matrix dargestellt werden können.
+// Jedes Element ist ein 32bit Codierter Farbcode im HEX-Code.
 uint32_t HAW_Logo[] = {
   0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000,
   0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000,
@@ -151,42 +182,64 @@ enum e_Bilder {
   e_Luigi
 };
 
+// Bilder wurde an dieser Stelle wieder als separate Klasse angelegt.
+// Jedes Bild kann durch einen Titel und eine oben abgebildete Matrix abgebildet werden.
 class Bilder {
   public:
     String ab_title;
     uint32_t ab_Pixelarray[NUM_LEDS];
-
+  // Generell soll der Konstruktor wie folgt aussehen:
   Bilder(String title, uint32_t* pixels);
 };
 
+// Das zuweisen des Bildarrays zum Pixelarray war im Konstruktor so nicht möglich, wodurch dieser hier nochmal überladen wird.
+// Dabei wird jedes Pixel einzeln von A nach B übertragen.
 Bilder::Bilder(String title, uint32_t* pixels){
     ab_title = title;
 
     for(int i = 0; i < NUM_LEDS; i++) {
       ab_Pixelarray[i] = pixels[i];
     }
-
 }
 
+// Hier wird das Bild Array mit allen möglichen Pixelgrafik erzeugt.
+// Eine Ergänzung des Pixelart Modis findet somit über ein zusätzliches Element statt.
 Bilder* Bilderarray[] = {
   new Bilder("HAW", HAW_Logo),
   new Bilder("Mario", Mario),
   new Bilder("Luigi", Luigi)
 };
 
-
-
+// Variablen für den Rainboweffekt
 uint8_t hue{0};
 unsigned long previousTime{0}, currentTime{0};
 
 //Variablen für DMX
-int RX_Pin{16};
-dmx_port_t dmxPort{1};
-byte dmxdata [DMX_MAX_PACKET_SIZE];
-QueueHandle_t queue;
-bool dmxIsConnected{false};
+int RX_Pin{16};                     // Der Pin auf dem die Serielle Kommunikation über das MAX485 Modul stattfindet ist der Pin 16
+dmx_port_t dmxPort{1};              // Der DMX Port ist standardmäßig immer auf 1 zu setzen.
+byte dmxdata [DMX_MAX_PACKET_SIZE]; // Hier wird ein Array mit den übermittelten DMX-Daten initialisiert. Dabei meint die Packetsize 513 Elemente.
+                                    // Dabei wird immer ein Universium übertragen. 0. Element ist das Startbyte eines Universums.
+QueueHandle_t queue;                // Bei der Seriellen Übertragung müssen die Daten in einen Buffer geschrieben werden. Hier als Queue realisiert.
+bool dmxIsConnected{false};         // Dieses dient als Flag zur Beschreibung des Verbindungszustands.
+
+// Datenstrukturen für Lichtprogrammierung
+
+//Eine weitere Klasse bildet die Color-Class. Eine Color kann wieder durch einen Namen und eine Farbe CRGB beschrieben werden.
+class Color{
+  public:
+    String am_title;
+    CRGB am_color;
+
+  Color(String title, CRGB color) {
+    am_title = title;
+    am_color = color;
+  }
+};
 
 // Farbarrays
+
+// In den Farbmodis, bei denen der Nutzende statische Farben gewählt werden können, dienen die Arrays als Vorgabe.
+// Jedes Element der Arrays ist eine Farbe, die später ausgewählt werden kann.
 Color* tempArray[] = {
   new Color("1800K", CRGB(215,65,10)),
   new Color("2000K", CRGB(255,80,15)), 
@@ -206,6 +259,12 @@ Color* farbArray[] = {
   new Color("Orange", CRGB::Orange)
 };
 
+/*
+ *
+ * Teil 5: Definition von Funktionsprototypen
+ *
+ */
+
 // Menu Funktionsprototyp
 void InitilizeLCD();
 void InitilizeMenu();
@@ -214,15 +273,21 @@ void InitilizeDMX();
 void PrintModi(int, int);
 
 // Licht Funktionsprototyp
+void printLogo();
 void RunModi(byte);
 void LichtModiRainbow(byte);
 void LichtModiRaum(byte);
 void LichtModiFarbe(CRGB);
 void LichtModiFarbpalette(byte , byte, byte);
-void LichtModiPixelart(byte);
+void LichtModiPixelart(uint32_t*);
 void Settings(byte);
 
-// the setup function runs once when you press reset or power the board
+/*
+ *
+ * Teil 6: Setup Funktion
+ *
+ */
+
 void setup() {
   InitilizeLCD();
   InitilizeLight();
@@ -230,19 +295,31 @@ void setup() {
   InitilizeDMX();
 }
 
+/*
+ *
+ * Teil 7: Loop Funktion
+ *
+ */
+
 void loop() {
 
+  // In der Loop Funktionen findet die vollständige Steuerung der Lampe statt.
+
+  // Dabei wird nach folgender Logik vorgegangen.
+  // Wenn eine Eingabe getätigt wird, dekodiere diese - Ansonsten führe Führe den Modi an der der aktuellen Positionen mit den Parametern aus.
   if(IrReceiver.decode()) { 
 
       // Navigation durch die ModiListe
-      if (IrReceiver.decodedIRData.address == 0x0) {
+
+      if (IrReceiver.decodedIRData.address == 0x0) { // Wenn die Fernbedienung die Adresse 0x0 besitzt führe folgendes aus...
         
-        if (IrReceiver.decodedIRData.command == 0x40) {
-          in_Eingabe = !in_Eingabe;
+        if (IrReceiver.decodedIRData.command == 0x40) { // Mit dem OK Button wird eine eingabe getätigt.
+          in_Eingabe = !in_Eingabe;                     // Nur mit einer Eingabe (== true) kann eine Veränderung der Parameter stattfinden.
         }
         
-        if(!in_Eingabe) {
-
+        if(!in_Eingabe) { 
+          // Wenn ich keine Eingabe getätigt habe soll folgendes geschehen:
+          // Eine Veränderung der Parameter soll nicht möglich sein.
           switch(IrReceiver.decodedIRData.command) {
                         
             case 0x43: {
@@ -288,7 +365,8 @@ void loop() {
         }
 
         if(in_Eingabe) {
-          
+          // Wenn ich eine Eingabe getätigt habe soll folgendes geschehen:
+          // Soll nur eine Veränderung der Parameter soll möglich sein.
           int eingabeWert = ModiList.get(p_ModiPosition)->am_parameterList.get(p_ParameterPosition)->ap_parameter;
           int maximalerWert = ModiList.get(p_ModiPosition)->am_parameterList.get(p_ParameterPosition)->ap_max;
           int minimalerWert = ModiList.get(p_ModiPosition)->am_parameterList.get(p_ParameterPosition)->ap_min;
@@ -296,6 +374,7 @@ void loop() {
 
           switch(IrReceiver.decodedIRData.command) {
             case 0x46: {
+              // Mit dem Vol+ Button soll der Wert des Parameters mit der dazugehörigen Schrittweite Inkrementiert werden.
               eingabeWert = eingabeWert + schritte;
               if(eingabeWert > maximalerWert) {
                 eingabeWert = maximalerWert;
@@ -305,6 +384,7 @@ void loop() {
             }
 
             case 0x15: {
+              // Mit dem Vol- Button soll der Wert des Parameters mit der dazugehörigen Schrittweite Dekrementiert werden.
               eingabeWert = eingabeWert - schritte;
               if(eingabeWert < minimalerWert) {
                 eingabeWert = minimalerWert;
@@ -324,7 +404,13 @@ void loop() {
     }
 }
 
-// Hier soll die LCD Anzeige Initalisiert werden.
+/*
+ *
+ * Teil 8: Die Definierten Funktionen
+ *
+ */
+
+// Das LCD Display wird initialisiert.
 void InitilizeLCD() {
   IrReceiver.begin(IRRECIEVER_DATA_PIN);
   Wire.begin();
@@ -335,24 +421,27 @@ void InitilizeLCD() {
   lcd.print("Effect Light TV");
 }
 
-// Hier soll das Menü initalisiert werden. Jeder Menüpunkt wird erzeugt inkl. der Parameter.
+// Das Menü wird initialisiert. Jeder Menüpunkt wird erzeugt inkl. der Parameter.
 // Dabei kann jederzeit ohne große Mühe ein Modi ergänzt werden.
 void InitilizeMenu() {
 
   // MODI 1 - Raumlicht
+  // MODI Raumlicht wird beschrieben durch die Farbe hergeleitet durch die Farbtemperatur.
   Modi *raumlicht = new Modi();
   raumlicht->am_title = MODI_RAUM;
-  // new Parameter ("Titel", Startwert, maximaler Wert, minimaler Wert, Schrittweite);
+  // Notiz: new Parameter ("Titel", Startwert, maximaler Wert, minimaler Wert, Schrittweite);
   raumlicht->am_parameterList.add(new Parameter("Temp.", 0, (sizeof(tempArray)/sizeof(tempArray[0]))-1, 0, 1));
   ModiList.add(raumlicht);
 
   // MODI 2 - Farbe
+  // MODI Farbe wird durch eine Beliebige Farbe beschrieben
   Modi *farbe = new Modi();
   farbe->am_title = MODI_FARBE;
   farbe->am_parameterList.add(new Parameter("Farbe", 0, (sizeof(farbArray)/sizeof(farbArray[0]))-1, 0, 1));
   ModiList.add(farbe);
 
   // MODI 3 - Farbpalette
+  // MODI Farbpalette wird durch die drei Komponenten RGB beschrieben. Dabei kann jeder Parameter einzeln eingestellt werden.
   Modi *farbPalette = new Modi();
   farbPalette->am_title = MODI_FARBEPALETTE;
   farbPalette->am_parameterList.add(new Parameter("Rot", 0));
@@ -361,36 +450,41 @@ void InitilizeMenu() {
   ModiList.add(farbPalette);
 
   // MODI 4 - Effektlicht
+  // MODI Effektlicht 1 bildet den Funky Modi und besitzt den Parameter Tempo.
   Modi *funky = new Modi();
   funky->am_title = MODI_FUNKY;
   funky->am_parameterList.add(new Parameter("Tempo(%)", 10, 100, 10, 10));
   ModiList.add(funky);
 
   // MODI 5 - Effektlicht
+  // MODI Effektlicht 2 bildet den Rainbow Modi und besitzt den Parameter Tempo.
   Modi *rainbow = new Modi();
   rainbow->am_title = MODI_RAINBOW;
   rainbow->am_parameterList.add(new Parameter("Tempo(%)", 10, 100, 10, 10));
   ModiList.add(rainbow);
 
   // MODI 6 - Pixelart
+  // MODI Pixelart kann ein Bild aus dem vorher definierten Array darstellen.
   Modi *pixelart = new Modi();
   pixelart->am_title = MODI_PIXELART;
   pixelart->am_parameterList.add(new Parameter("Figur", 0, (sizeof(Bilderarray)/sizeof(Bilderarray[0])) - 1, 0, 1));
   ModiList.add(pixelart);
 
   // Einstellungen (Wird aber als Modi der Datenstruktur hinzugefügt)
+  // In den Einstellungen besteht die Möglichkeit die Gesamthelligkeit anzupassen.
   Modi *settings = new Modi();
   settings->am_title = MODI_SETTINGS;
   settings->am_parameterList.add(new Parameter("Hellig.(%)", 100, 100, 0, 10));
   ModiList.add(settings);
 
-   // MODI 7 - DMX
+  // MODI 7 - DMX
+  // MODI DMX benötigt eine Anfangsadresse.
   Modi *dmx = new Modi();
   dmx->am_title = MODI_DMX;
   dmx->am_parameterList.add(new Parameter("Adresse", 1, 512, 1, 1));
   ModiList.add(dmx);
 
-  // Startposition setzen
+  // Am Ende wird die Startposition gesetzt.
   PrintModi(p_ModiPosition, p_ParameterPosition);
 }
 
@@ -418,17 +512,21 @@ void PrintModi(int positionModi, int positionParameter) {
   lcd.setCursor(16-6,1);
   byte positionLicht = ModiList.get(positionModi)->am_parameterList.get(positionParameter)->ap_parameter;
 
+  // Für die Ausgabe auf dem Display werden hier Sonderregeln definiert.
   switch (positionModi) {
     case e_raumlicht: {
+      // Beim Raumlicht sollen die Farbtemperaturen dargestellt werden.
       lcd.print(tempArray[positionLicht]->am_title);
       break;
     }
     case e_farbe: {
+      // Beim Farblicht sollen die Namen der Farben dargestellt werden.
       lcd.print(farbArray[positionLicht]->am_title);
       break;   
     }
 
     case e_pixelart: {
+      // Bei Pixelart sollen die Namen der Bilder dargestellt werden.
       lcd.print(Bilderarray[positionLicht]->ab_title);
       break;   
     }
@@ -459,7 +557,7 @@ void InitilizeDMX() {
 // Initaliiserung der Strips
 void InitilizeLight() {
   FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalSMD5050);
-  FastLED.setBrightness(BRIGHTNESS);// Lichtstärke setzen
+  FastLED.setBrightness(BRIGHTNESS);  // maximale Lichtstärke setzen
   previousTime = currentTime;
   printLogo();
   delay(2000);
@@ -468,18 +566,22 @@ void InitilizeLight() {
 // Ausgabe des Logos auf der Matrix
 void printLogo() {
 
-  uint32_t mapLogo[NUM_LEDS];
+  uint32_t mapLogo[NUM_LEDS]; // Als zwischenspeicher ein leeres Array
 
-  for (int i = 0; i < LED_LINES; i++) {
-    for (int j = 0; j < LED_ROWS; j++) {
-      if(i % 2) {   
+  for (int i = 0; i < LED_LINES; i++) {   //Dabei soll erst über jede Element in einer Zeile iteriert werden 
+    for (int j = 0; j < LED_ROWS; j++) {  // und das ganze dann Spaltenweise
+      if(i % 2) {
+        // Jede zweite Zeie soll umgedreht werden.
         mapLogo[(i * LED_ROWS) + j] = HAW_Logo[(i * LED_ROWS) + ((LED_ROWS - 1) - j)];
       } else {
+        // Jede andere Zeie soll bleibt unverändert.
         mapLogo[(i * LED_ROWS) + j] = HAW_Logo[(i * LED_ROWS) + j];
       }
     }
   }
 
+  // Am Ende wird das gesamte Bild nochmal gespiegelt und auf den Kopf gestellt.
+  // Grund hierfür ist die Verkabelung der LED Streifen als Matrix.
   for(int i = 0; i < NUM_LEDS; i++) {
     leds[i] = mapLogo[(NUM_LEDS - 1) - i];   
   }
@@ -490,6 +592,7 @@ void printLogo() {
 // Hier soll entschieden werden, welcher Modi getriggert werden soll.
 void RunModi(byte _position) {
 
+  // In dieser Funktionen wird die Position mithilfe des Anfangsdefinierten Enums aufgelöst und die jeweilige Funktion ausgelöst.
   switch (_position) {
     case e_funky: {
       LichtModiFunky(ModiList.get(e_funky)->am_parameterList.get(0)->ap_parameter);
